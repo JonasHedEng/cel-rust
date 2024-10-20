@@ -171,6 +171,7 @@ impl<'a> Default for Context<'a> {
         ctx.add_function("has", functions::has);
         ctx.add_function("map", functions::map);
         ctx.add_function("filter", functions::filter);
+        ctx.add_function("reduce", functions::reduce);
         ctx.add_function("all", functions::all);
         ctx.add_function("max", functions::max);
         ctx.add_function("startsWith", functions::starts_with);

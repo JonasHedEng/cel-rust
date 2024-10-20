@@ -353,6 +353,43 @@ pub fn filter(
     .into()
 }
 
+/// Reduces the provided list by applying an expression to each input item
+/// into the accumulator.
+///
+/// This function is intended to be used like the suggestion in
+/// <https://github.com/google/cel-spec/issues/143>
+///
+/// # Example
+/// ```cel
+/// [1, 2, 3].reduce(sum, x, 0, sum + x) == 6
+/// ```
+pub fn reduce(
+    ftx: &FunctionContext,
+    This(this): This<Value>,
+    reduce_ident: Identifier,
+    iter_ident: Identifier,
+    init_expr: Expression,
+    op_expr: Expression,
+) -> Result<Value> {
+    match this {
+        Value::List(items) => {
+            let mut ptx = ftx.ptx.new_inner_scope();
+
+            let mut reduce_value = ftx.ptx.resolve(&init_expr)?;
+
+            for item in items.iter() {
+                ptx.add_variable_from_value(reduce_ident.clone(), reduce_value.clone());
+                ptx.add_variable_from_value(iter_ident.clone(), item.clone());
+                reduce_value = ptx.resolve(&op_expr)?;
+            }
+
+            reduce_value
+        }
+        _ => return Err(this.error_expected_type(ValueType::List)),
+    }
+    .into()
+}
+
 /// Returns a boolean value indicating whether every value in the provided
 /// list or map met the predicate defined by the provided expression. If
 /// called on a map, the predicate is applied to the map keys.
@@ -623,6 +660,23 @@ mod tests {
         [("filter list", "[1, 2, 3].filter(x, x > 2) == [3]")]
             .iter()
             .for_each(assert_script);
+    }
+
+    #[test]
+    fn test_reduce() {
+        [
+            ("sum", "[1, 2, 3].reduce(sum, x, 0, sum + x) == 6"),
+            (
+                "flatten",
+                "[[1], [2, 3], []].reduce(acc, l, [], acc + l) == [1, 2, 3]",
+            ),
+            (
+                "find",
+                r#"[null, {"b": 2}, {"c": 3}].reduce(found, x, null, found ? found : x)["b"] == 2"#,
+            ),
+        ]
+        .iter()
+        .for_each(assert_script);
     }
 
     #[test]
